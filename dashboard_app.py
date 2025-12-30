@@ -18,7 +18,7 @@ DB_CONFIG = {
     "host": "shortline.proxy.rlwy.net",
     "port": 46617,
     "user": "root",
-    "password": "<RAILWAY_PASSWORD>",
+    "password": "ykAAFwsZzFztPQQSuHcczaLucwqifwqI",
     "database": "weather_dashboard"
 }
 
