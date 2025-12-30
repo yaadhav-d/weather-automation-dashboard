@@ -3,7 +3,7 @@ import time
 import requests
 from datetime import datetime
 import pytz
-import mysql.connector
+import pymysql
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,6 +13,7 @@ import plotly.express as px
 # =========================
 
 API_KEY = os.getenv("efd6b4dcc0f1b762d34a167b399098a5")
+DB_PASSWORD = os.getenv("ykAAFwsZzFztPQQSuHcczaLucwqifwqI")
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -29,9 +30,14 @@ DB_CONFIG = {
     "host": "shortline.proxy.rlwy.net",
     "port": 46617,
     "user": "root",
-    "password": os.getenv("ykAAFwsZzFztPQQSuHcczaLucwqifwqI"),
+    "password": DB_PASSWORD,
     "database": "weather_dashboard"
 }
+
+# 🔴 SAFETY CHECK (MANDATORY)
+if not API_KEY or not DB_PASSWORD:
+    st.error("Secrets not set. Please add OPENWEATHER_API_KEY and DB_PASSWORD in Streamlit Secrets.")
+    st.stop()
 
 # =========================
 # PAGE CONFIG
@@ -41,18 +47,29 @@ st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
 # =========================
-# INGESTION LOGIC (RUNS MAX ONCE / HOUR)
+# INGESTION (RUNS MAX ONCE / HOUR)
 # =========================
 
 def ingest_weather_once():
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(
+        host=DB_CONFIG["host"],
+        port=DB_CONFIG["port"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+        database=DB_CONFIG["database"],
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
     cursor = conn.cursor()
 
     for city in CITIES:
         try:
-            url = "https://api.openweathermap.org/data/2.5/weather"
-            params = {"q": city, "appid": API_KEY}
-            data = requests.get(url, params=params, timeout=10).json()
+            response = requests.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={"q": city, "appid": API_KEY},
+                timeout=10
+            )
+            data = response.json()
 
             cursor.execute("""
                 INSERT INTO weather_data
@@ -65,14 +82,14 @@ def ingest_weather_once():
                 data["main"]["humidity"],
                 datetime.now(IST)
             ))
-            conn.commit()
         except Exception:
             pass
 
+    conn.commit()
     cursor.close()
     conn.close()
 
-# Run ingestion safely
+# Controlled execution
 if "last_ingest_time" not in st.session_state:
     ingest_weather_once()
     st.session_state["last_ingest_time"] = time.time()
@@ -87,7 +104,15 @@ elif time.time() - st.session_state["last_ingest_time"] >= 3600:
 
 @st.cache_data(ttl=300)
 def load_data():
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(
+        host=DB_CONFIG["host"],
+        port=DB_CONFIG["port"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+        database=DB_CONFIG["database"],
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
     query = """
         SELECT city, country, temperature_c, feels_like_c,
                humidity_percent, pressure_hpa, wind_speed_mps,
@@ -134,47 +159,45 @@ latest = (
     .tail(1)
 )
 
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Avg Temperature (°C)", round(latest["temperature_c"].mean(), 1))
-col2.metric("Avg Humidity (%)", round(latest["humidity_percent"].mean(), 1))
-col3.metric("Avg Pressure (hPa)", round(latest["pressure_hpa"].mean(), 1))
-col4.metric("Avg Wind Speed (m/s)", round(latest["wind_speed_mps"].mean(), 1))
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Avg Temp (°C)", round(latest["temperature_c"].mean(), 1))
+c2.metric("Avg Humidity (%)", round(latest["humidity_percent"].mean(), 1))
+c3.metric("Avg Pressure (hPa)", round(latest["pressure_hpa"].mean(), 1))
+c4.metric("Avg Wind (m/s)", round(latest["wind_speed_mps"].mean(), 1))
 
 # =========================
 # CHARTS
 # =========================
-st.subheader("Temperature Trend (Last 7 Days)")
+st.subheader("Temperature Trend")
 
-temp_fig = px.line(
-    filtered_df,
-    x="recorded_at",
-    y="temperature_c",
-    color="city",
-    markers=True,
-    labels={"temperature_c": "Temperature (°C)", "recorded_at": "Time"}
+st.plotly_chart(
+    px.line(
+        filtered_df,
+        x="recorded_at",
+        y="temperature_c",
+        color="city",
+        markers=True
+    ),
+    use_container_width=True
 )
-st.plotly_chart(temp_fig, use_container_width=True)
 
 st.subheader("Humidity Trend")
 
-hum_fig = px.line(
-    filtered_df,
-    x="recorded_at",
-    y="humidity_percent",
-    color="city",
-    markers=True,
-    labels={"humidity_percent": "Humidity (%)", "recorded_at": "Time"}
+st.plotly_chart(
+    px.line(
+        filtered_df,
+        x="recorded_at",
+        y="humidity_percent",
+        color="city",
+        markers=True
+    ),
+    use_container_width=True
 )
-st.plotly_chart(hum_fig, use_container_width=True)
 
 # =========================
 # DATA TABLE
 # =========================
 st.subheader("Raw Weather Data")
-st.dataframe(
-    filtered_df.sort_values("recorded_at", ascending=False),
-    use_container_width=True
-)
+st.dataframe(filtered_df.sort_values("recorded_at", ascending=False), use_container_width=True)
 
-st.caption("Last updated automatically via Streamlit Cloud")
+st.caption("Fully automated • Cloud-hosted • SQL-backed")
