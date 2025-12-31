@@ -48,53 +48,60 @@ st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
 # =========================
-# DB CONNECTION HELPER
+# DATABASE CONNECTIONS
 # =========================
-def get_connection(dict_cursor=False):
+def get_dict_connection():
     return pymysql.connect(
         host=DB_CONFIG["host"],
         port=DB_CONFIG["port"],
         user=DB_CONFIG["user"],
         password=DB_CONFIG["password"],
         database=DB_CONFIG["database"],
-        cursorclass=pymysql.cursors.DictCursor if dict_cursor else None,
+        cursorclass=pymysql.cursors.DictCursor,
+        ssl={"check_hostname": False, "verify_mode": False}
+    )
+
+def get_plain_connection():
+    return pymysql.connect(
+        host=DB_CONFIG["host"],
+        port=DB_CONFIG["port"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+        database=DB_CONFIG["database"],
         ssl={"check_hostname": False, "verify_mode": False}
     )
 
 # =========================
-# INGESTION CONTROL (ROBUST)
+# INGESTION CONTROL (BULLETPROOF)
 # =========================
 def should_ingest():
     try:
-        conn = get_connection(dict_cursor=True)
+        conn = get_dict_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT MAX(recorded_at) AS last_time FROM weather_data")
-        result = cursor.fetchone()
+        row = cursor.fetchone()
         conn.close()
 
-        if not result or result["last_time"] is None:
+        if not row or row["last_time"] is None:
             return True
 
-        last_time = result["last_time"]
+        last_time = row["last_time"]
 
-        # Convert string → datetime if needed
         if isinstance(last_time, str):
             last_time = datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S")
 
-        # Make BOTH datetimes naive (MySQL DATETIME has no timezone)
         now_naive = datetime.now(IST).replace(tzinfo=None)
 
         return (now_naive - last_time).total_seconds() >= 3600
 
     except Exception:
-        # If anything goes wrong, allow ingestion rather than crashing
         return True
 
 # =========================
 # INGEST WEATHER DATA
 # =========================
 def ingest_weather_once():
-    conn = get_connection(dict_cursor=True)
+    conn = get_dict_connection()
     cursor = conn.cursor()
 
     for city in CITIES:
@@ -126,16 +133,16 @@ def ingest_weather_once():
     conn.commit()
     conn.close()
 
-# Run ingestion if required
+# Run ingestion safely
 if should_ingest():
     ingest_weather_once()
 
 # =========================
-# LOAD DATA
+# LOAD DATA (NO CURSOR BUG)
 # =========================
 @st.cache_data(ttl=300)
 def load_data():
-    conn = get_connection()
+    conn = get_plain_connection()
     query = """
         SELECT
             city,
