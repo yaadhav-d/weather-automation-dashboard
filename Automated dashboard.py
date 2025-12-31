@@ -1,25 +1,26 @@
+import os
 import requests
-import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
+import pymysql
 
 # =========================
 # CONFIGURATION
 # =========================
 
-API_KEY = "efd6b4dcc0f1b762d34a167b399098a5"
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 DB_CONFIG = {
-    "host": "mysql.railway.internal",
-    "port": 3306,
+    "host": "shortline.proxy.rlwy.net",
+    "port": 46617,
     "user": "root",
-    "password": "ykAAFwsZzFztPQQSuHcczaLucwqifwqI",
-    "database": "railway"
+    "password": DB_PASSWORD,
+    "database": "railway",
+    "ssl": {"check_hostname": False, "verify_mode": False}
 }
-
-
-
 
 CITIES = [
     "New Delhi,IN",
@@ -35,82 +36,68 @@ CITIES = [
 IST = pytz.timezone("Asia/Kolkata")
 
 # =========================
-# FETCH WEATHER DATA
+# SAFETY CHECK
 # =========================
-
-def fetch_weather(city):
-    params = {
-        "q": city,
-        "appid": API_KEY
-    }
-    response = requests.get(BASE_URL, params=params, timeout=10)
-    response.raise_for_status()
-    return response.json()
+if not API_KEY or not DB_PASSWORD:
+    raise RuntimeError("Environment variables not set")
 
 # =========================
-# MAIN INGESTION LOGIC
+# INGESTION
 # =========================
-
 def run_ingestion():
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = pymysql.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
-    now_ist = datetime.now(IST)
-    recorded_at = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+    recorded_at = datetime.now(IST).replace(tzinfo=None)
 
     for city in CITIES:
         try:
-            data = fetch_weather(city)
+            response = requests.get(
+                BASE_URL,
+                params={"q": city, "appid": API_KEY},
+                timeout=10
+            )
+            data = response.json()
 
-            insert_query = """
+            cursor.execute(
+                """
                 INSERT INTO weather_data (
                     city, country, temperature_c, feels_like_c,
                     humidity_percent, pressure_hpa, wind_speed_mps,
                     weather_condition, weather_description, recorded_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-
-            values = (
-                data["name"],
-                data["sys"]["country"],
-                round(data["main"]["temp"] - 273.15, 2),
-                round(data["main"]["feels_like"] - 273.15, 2),
-                data["main"]["humidity"],
-                data["main"]["pressure"],
-                data["wind"]["speed"],
-                data["weather"][0]["main"],
-                data["weather"][0]["description"],
-                recorded_at
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    data["name"],
+                    data["sys"]["country"],
+                    round(data["main"]["temp"] - 273.15, 2),
+                    round(data["main"]["feels_like"] - 273.15, 2),
+                    data["main"]["humidity"],
+                    data["main"]["pressure"],
+                    data["wind"]["speed"],
+                    data["weather"][0]["main"],
+                    data["weather"][0]["description"],
+                    recorded_at
+                )
             )
 
-            cursor.execute(insert_query, values)
-            conn.commit()
-
-            print(f"Inserted data for {data['name']} at {recorded_at}")
+            print(f"Inserted {data['name']}")
 
         except Exception as e:
-            print(f"Error fetching/inserting data for {city}: {e}")
+            print(f"Error for {city}: {e}")
 
-    # =========================
-    # 7-DAY RETENTION CLEANUP
-    # =========================
+    # 7-day retention
+    cursor.execute(
+        "DELETE FROM weather_data WHERE recorded_at < NOW() - INTERVAL 7 DAY"
+    )
 
-    cleanup_query = """
-        DELETE FROM weather_data
-        WHERE recorded_at < NOW() - INTERVAL 7 DAY
-    """
-    cursor.execute(cleanup_query)
     conn.commit()
-
     cursor.close()
     conn.close()
 
-    print("Old records cleanup completed.")
-
 # =========================
-# SCRIPT ENTRY POINT
+# ENTRY POINT
 # =========================
-
 if __name__ == "__main__":
     run_ingestion()
