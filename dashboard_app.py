@@ -73,10 +73,17 @@ def should_ingest():
     result = cursor.fetchone()
     conn.close()
 
-    if result["last_time"] is None:
+    if not result or result["last_time"] is None:
         return True
 
-    return (datetime.now(IST) - result["last_time"]).total_seconds() >= 3600
+    last_time = result["last_time"]
+
+    # 🔴 FIX: convert string → datetime if needed
+    if isinstance(last_time, str):
+        last_time = datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S")
+
+    return (datetime.now(IST) - last_time).total_seconds() >= 3600
+
 
 
 def ingest_weather_once():
