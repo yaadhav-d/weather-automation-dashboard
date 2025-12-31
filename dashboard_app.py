@@ -34,9 +34,9 @@ DB_CONFIG = {
     "database": "railway"
 }
 
-# 🔴 SAFETY CHECK (MANDATORY)
+# Safety check
 if not API_KEY or not DB_PASSWORD:
-    st.error("Secrets not set. Please add OPENWEATHER_API_KEY and DB_PASSWORD in Streamlit Secrets.")
+    st.error("Secrets not set. Please configure OPENWEATHER_API_KEY and DB_PASSWORD.")
     st.stop()
 
 # =========================
@@ -47,20 +47,40 @@ st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
 # =========================
-# INGESTION (RUNS MAX ONCE / HOUR)
+# DB CONNECTION HELPER
 # =========================
-
-def ingest_weather_once():
-    conn = pymysql.connect(
+def get_connection(dict_cursor=False):
+    return pymysql.connect(
         host=DB_CONFIG["host"],
         port=DB_CONFIG["port"],
         user=DB_CONFIG["user"],
         password=DB_CONFIG["password"],
         database=DB_CONFIG["database"],
-        cursorclass=pymysql.cursors.DictCursor,
-        ssl={"ssl": True}
+        cursorclass=pymysql.cursors.DictCursor if dict_cursor else None,
+        ssl={
+            "check_hostname": False,
+            "verify_mode": False
+        }
     )
 
+# =========================
+# INGESTION CONTROL (DB-BASED)
+# =========================
+def should_ingest():
+    conn = get_connection(dict_cursor=True)
+    cursor = conn.cursor()
+    cursor.execute("SELECT MAX(recorded_at) AS last_time FROM weather_data")
+    result = cursor.fetchone()
+    conn.close()
+
+    if result["last_time"] is None:
+        return True
+
+    return (datetime.now(IST) - result["last_time"]).total_seconds() >= 3600
+
+
+def ingest_weather_once():
+    conn = get_connection(dict_cursor=True)
     cursor = conn.cursor()
 
     for city in CITIES:
@@ -72,59 +92,50 @@ def ingest_weather_once():
             )
             data = response.json()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO weather_data
                 (city, country, temperature_c, humidity_percent, recorded_at)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (
-                data["name"],
-                data["sys"]["country"],
-                round(data["main"]["temp"] - 273.15, 2),
-                data["main"]["humidity"],
-                datetime.now(IST)
-            ))
+                """,
+                (
+                    data["name"],
+                    data["sys"]["country"],
+                    round(data["main"]["temp"] - 273.15, 2),
+                    data["main"]["humidity"],
+                    datetime.now(IST)
+                )
+            )
         except Exception:
             pass
 
     conn.commit()
-    cursor.close()
     conn.close()
 
-# Controlled execution
-if "last_ingest_time" not in st.session_state:
-    ingest_weather_once()
-    st.session_state["last_ingest_time"] = time.time()
 
-elif time.time() - st.session_state["last_ingest_time"] >= 3600:
+if should_ingest():
     ingest_weather_once()
-    st.session_state["last_ingest_time"] = time.time()
 
 # =========================
 # LOAD DATA
 # =========================
-
 @st.cache_data(ttl=300)
 def load_data():
-    conn = pymysql.connect(
-        host=DB_CONFIG["host"],
-        port=DB_CONFIG["port"],
-        user=DB_CONFIG["user"],
-        password=DB_CONFIG["password"],
-        database=DB_CONFIG["database"],
-        cursorclass=pymysql.cursors.DictCursor,
-        ssl={"ssl": True}
-    )
-
+    conn = get_connection()
     query = """
-        SELECT city, country, temperature_c, feels_like_c,
-               humidity_percent, pressure_hpa, wind_speed_mps,
-               weather_condition, recorded_at
+        SELECT
+            city,
+            country,
+            temperature_c,
+            humidity_percent,
+            recorded_at
         FROM weather_data
         ORDER BY recorded_at
     """
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
 
 df = load_data()
 
@@ -135,7 +146,7 @@ st.sidebar.header("Filters")
 
 cities = st.sidebar.multiselect(
     "Select City",
-    options=sorted(df["city"].unique()),
+    sorted(df["city"].unique()),
     default=sorted(df["city"].unique())
 )
 
@@ -161,11 +172,9 @@ latest = (
     .tail(1)
 )
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Avg Temp (°C)", round(latest["temperature_c"].mean(), 1))
+c1, c2 = st.columns(2)
+c1.metric("Avg Temperature (°C)", round(latest["temperature_c"].mean(), 1))
 c2.metric("Avg Humidity (%)", round(latest["humidity_percent"].mean(), 1))
-c3.metric("Avg Pressure (hPa)", round(latest["pressure_hpa"].mean(), 1))
-c4.metric("Avg Wind (m/s)", round(latest["wind_speed_mps"].mean(), 1))
 
 # =========================
 # CHARTS
@@ -200,6 +209,9 @@ st.plotly_chart(
 # DATA TABLE
 # =========================
 st.subheader("Raw Weather Data")
-st.dataframe(filtered_df.sort_values("recorded_at", ascending=False), use_container_width=True)
+st.dataframe(
+    filtered_df.sort_values("recorded_at", ascending=False),
+    use_container_width=True
+)
 
 st.caption("Fully automated • Cloud-hosted • SQL-backed")
