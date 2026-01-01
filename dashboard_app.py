@@ -6,6 +6,7 @@ import pymysql
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from sqlalchemy import create_engine
 
 # =========================
 # CONFIGURATION
@@ -44,7 +45,7 @@ if not API_KEY or not DB_PASSWORD:
 # PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Live Weather Dashboard", layout="wide")
-st.title("🌦Live Weather Dashboard")
+st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
 # =========================
@@ -61,18 +62,14 @@ def get_dict_connection():
         ssl={"check_hostname": False, "verify_mode": False}
     )
 
-def get_plain_connection():
-    return pymysql.connect(
-        host=DB_CONFIG["host"],
-        port=DB_CONFIG["port"],
-        user=DB_CONFIG["user"],
-        password=DB_CONFIG["password"],
-        database=DB_CONFIG["database"],
-        ssl={"check_hostname": False, "verify_mode": False}
+def get_sqlalchemy_engine():
+    return create_engine(
+        f"mysql+pymysql://root:{DB_PASSWORD}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}",
+        pool_pre_ping=True
     )
 
 # =========================
-# INGESTION CONTROL (BULLETPROOF)
+# INGESTION CONTROL
 # =========================
 def should_ingest():
     try:
@@ -86,12 +83,10 @@ def should_ingest():
             return True
 
         last_time = row["last_time"]
-
         if isinstance(last_time, str):
             last_time = datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S")
 
         now_naive = datetime.now(IST).replace(tzinfo=None)
-
         return (now_naive - last_time).total_seconds() >= 3600
 
     except Exception:
@@ -127,22 +122,21 @@ def ingest_weather_once():
                     datetime.now(IST).replace(tzinfo=None)
                 )
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Ingestion error for {city}: {e}")
 
     conn.commit()
     conn.close()
 
-# Run ingestion safely
 if should_ingest():
     ingest_weather_once()
 
 # =========================
-# LOAD DATA (NO CURSOR BUG)
+# LOAD DATA (STABLE)
 # =========================
 @st.cache_data(ttl=300)
 def load_data():
-    conn = get_plain_connection()
+    engine = get_sqlalchemy_engine()
     query = """
         SELECT
             city,
@@ -151,11 +145,9 @@ def load_data():
             humidity_percent,
             recorded_at
         FROM weather_data
-        ORDER BY desc recorded_at
+        ORDER BY recorded_at DESC
     """
-    df = pd.read_sql(query, conn)
-    conn.close()
-    return df
+    return pd.read_sql(query, engine)
 
 df = load_data()
 
