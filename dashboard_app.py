@@ -27,8 +27,8 @@ CITIES = [
 ]
 
 DB_CONFIG = {
-    "host": "shortline.proxy.rlwy.net",
-    "port": 46617,
+    "host": "shinkansen.proxy.rlwy.net",
+    "port": 47686,
     "user": "root",
     "password": DB_PASSWORD,
     "database": "railway"
@@ -45,44 +45,44 @@ if not API_KEY or not DB_PASSWORD:
 # PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Live Weather Dashboard", layout="wide")
-st.title("🌦 Live1 Weather Dashboard")
+st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
 # =========================
 # DATABASE CONNECTIONS
 # =========================
-def get_dict_connection():
+def get_write_connection():
     return pymysql.connect(
         host=DB_CONFIG["host"],
         port=DB_CONFIG["port"],
         user=DB_CONFIG["user"],
         password=DB_CONFIG["password"],
         database=DB_CONFIG["database"],
-        cursorclass=pymysql.cursors.DictCursor,
-        ssl={"check_hostname": False, "verify_mode": False}
+        ssl={"ssl": {}},     # REQUIRED for Railway
+        autocommit=True
     )
 
-def get_sqlalchemy_engine():
+def get_read_engine():
     return create_engine(
         f"mysql+pymysql://root:{DB_PASSWORD}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}",
+        connect_args={"ssl": {"ssl": {}}},
         pool_pre_ping=True
     )
 
 # =========================
-# INGESTION CONTROL
+# INGESTION CONTROL (SAFE)
 # =========================
 def should_ingest():
     try:
-        conn = get_dict_connection()
+        conn = get_write_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT MAX(recorded_at) AS last_time FROM weather_data")
-        row = cursor.fetchone()
+        cursor.execute("SELECT MAX(recorded_at) FROM weather_data")
+        last_time = cursor.fetchone()[0]
         conn.close()
 
-        if not row or row["last_time"] is None:
+        if last_time is None:
             return True
 
-        last_time = row["last_time"]
         if isinstance(last_time, str):
             last_time = datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S")
 
@@ -90,23 +90,24 @@ def should_ingest():
         return (now_naive - last_time).total_seconds() >= 3600
 
     except Exception:
-        return True
+        # Fail open – do not crash app
+        return False
 
 # =========================
 # INGEST WEATHER DATA
 # =========================
 def ingest_weather_once():
-    conn = get_dict_connection()
+    conn = get_write_connection()
     cursor = conn.cursor()
 
     for city in CITIES:
         try:
-            response = requests.get(
+            r = requests.get(
                 "https://api.openweathermap.org/data/2.5/weather",
                 params={"q": city, "appid": API_KEY},
                 timeout=10
             )
-            data = response.json()
+            data = r.json()
 
             cursor.execute(
                 """
@@ -122,28 +123,26 @@ def ingest_weather_once():
                     datetime.now(IST).replace(tzinfo=None)
                 )
             )
+
         except Exception as e:
             print(f"Ingestion error for {city}: {e}")
 
-    conn.commit()
     conn.close()
 
-if should_ingest():
-    ingest_weather_once()
+# 🔒 Run ingestion only once per session
+if "ingested" not in st.session_state:
+    if should_ingest():
+        ingest_weather_once()
+    st.session_state["ingested"] = True
 
 # =========================
 # LOAD DATA (STABLE)
 # =========================
 @st.cache_data(ttl=300)
 def load_data():
-    engine = get_sqlalchemy_engine()
+    engine = get_read_engine()
     query = """
-        SELECT
-            city,
-            country,
-            temperature_c,
-            humidity_percent,
-            recorded_at
+        SELECT city, country, temperature_c, humidity_percent, recorded_at
         FROM weather_data
         ORDER BY recorded_at DESC
     """
@@ -152,7 +151,7 @@ def load_data():
 df = load_data()
 
 if df.empty:
-    st.warning("No data available yet. Please wait for the first ingestion.")
+    st.warning("Waiting for first data ingestion…")
     st.stop()
 
 # =========================
@@ -196,28 +195,14 @@ c2.metric("Avg Humidity (%)", round(latest["humidity_percent"].mean(), 1))
 # CHARTS
 # =========================
 st.subheader("Temperature Trend")
-
 st.plotly_chart(
-    px.line(
-        filtered_df,
-        x="recorded_at",
-        y="temperature_c",
-        color="city",
-        markers=True
-    ),
+    px.line(filtered_df, x="recorded_at", y="temperature_c", color="city"),
     use_container_width=True
 )
 
 st.subheader("Humidity Trend")
-
 st.plotly_chart(
-    px.line(
-        filtered_df,
-        x="recorded_at",
-        y="humidity_percent",
-        color="city",
-        markers=True
-    ),
+    px.line(filtered_df, x="recorded_at", y="humidity_percent", color="city"),
     use_container_width=True
 )
 
@@ -225,9 +210,6 @@ st.plotly_chart(
 # DATA TABLE
 # =========================
 st.subheader("Raw Weather Data")
-st.dataframe(
-    filtered_df.sort_values("recorded_at", ascending=False),
-    use_container_width=True
-)
+st.dataframe(filtered_df, use_container_width=True)
 
 st.caption("Fully automated • Cloud-hosted • SQL-backed")
