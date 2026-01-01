@@ -44,7 +44,7 @@ if not API_KEY or not DB_PASSWORD:
 # =========================
 # PAGE CONFIG
 # =========================
-st.set_page_config(page_title="Live 1 Weather Dashboard", layout="wide")
+st.set_page_config(page_title="Live1 Weather Dashboard", layout="wide")
 st.title("🌦 Live Weather Dashboard")
 st.caption("Automated weather monitoring using Python, SQL, and Streamlit")
 
