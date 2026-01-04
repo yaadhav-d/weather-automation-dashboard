@@ -1,7 +1,8 @@
 streamlit
-sqlalchemy
+python-dotenv
 pandas
-plotly
+numpy
 requests
-pymysql
-pytz
+matplotlib
+SQLAlchemy
+mysql-connector-python
