@@ -172,7 +172,7 @@ TIME_OPTION = st.sidebar.selectbox(
 )
 REFRESH_INTERVAL = st.sidebar.selectbox(
     "Auto Refresh",
-    [1800,120,300,600,3600],
+    [1800,3600],
     format_func=lambda x: "Off" if x == 0 else f"{x//60} min"
 )
 compare_cities = st.sidebar.multiselect(
