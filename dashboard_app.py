@@ -979,7 +979,7 @@ components.html(
 
 <div class="footer">
     <div class="emp">
-        Project done by | Employee Name: <b>YAADHAV </b>
+        Project done by | Employee Name : <b>YAADHAV </b>
     </div>
 
     <div class="social">
