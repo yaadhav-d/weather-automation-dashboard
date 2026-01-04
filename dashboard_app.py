@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from urllib.parse import quote_plus
 import streamlit as st
 import pandas as pd
