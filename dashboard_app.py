@@ -16,7 +16,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 # -------------------------------------------------
 # LOAD ENV (LOCAL + STREAMLIT + RAILWAY SAFE)
 # -------------------------------------------------
-load_dotenv()
+
 
 db_user = os.getenv("MYSQLUSER") or os.getenv("DB_USER")
 raw_password = os.getenv("MYSQLPASSWORD") or os.getenv("DB_PASSWORD")
