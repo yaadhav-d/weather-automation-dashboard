@@ -1032,12 +1032,6 @@ components.html(
     </div>
 
     <div class="social">
-        <a href="https://www.facebook.com" target="_blank" title="Facebook">
-            <i class="fab fa-facebook"></i>
-        </a>
-        <a href="https://www.google.com" target="_blank" title="Google">
-            <i class="fab fa-google"></i>
-        </a>
         <a href="https://github.com/yaadhav-d/weather-automation-dashboard.git" target="_blank" title="Github">
             <i class="fab fa-github"></i>
         </a>
