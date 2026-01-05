@@ -912,14 +912,63 @@ for i, city in enumerate(compare_cities):
 ax.legend()
 st.pyplot(fig)
 st.markdown('</div>', unsafe_allow_html=True)
-with st.expander("ℹ️ How this dashboard works"):
+with st.expander("ℹ️ How this Weather Dashboard Works"):
     st.markdown("""
-    - Weather data fetched from **OpenWeatherMap API**
-    - Stored every **INTERVAL_MINUTES**
-    - All cities tracked independently
-    - Averages computed from database (not API)
-    - Timezone handled using IST
-    """)
+### 🔄 Live Weather Collection
+- The dashboard fetches **real-time weather data** from the **OpenWeather API**.
+- Data includes **temperature, humidity, wind speed, and condition**.
+- Weather data is collected for **all configured cities** at fixed time intervals.
+
+---
+
+### 🗄️ Smart Data Storage
+- Live data is stored in a **MySQL database**.
+- Each city has an **interval-based control** to avoid duplicate data.
+- Historical weather data is preserved for **trend analysis**.
+
+---
+
+### 📊 Data Processing
+- Past data is used to calculate:
+  - Daily averages
+  - Maximum & minimum temperatures
+  - Stability of weather changes
+- Future forecasts are processed from API predictions.
+
+---
+
+### 📈 Visual Analytics
+- Interactive charts display:
+  - Past temperature trends
+  - Today’s live changes
+  - Future forecast patterns
+- Color indicators highlight **rising, falling, or stable** conditions.
+
+---
+
+### 🌍 City Comparison
+- Users can compare **multiple cities at the same time**.
+- Each city is plotted with a **separate line style** for clarity.
+
+---
+
+### 🎨 Dynamic UI & Responsiveness
+- Background changes based on **temperature & weather condition**.
+- Metrics automatically show **green/red indicators** based on change.
+- Fully optimized for **mobile and desktop views**.
+
+---
+
+### 🔁 Auto Refresh
+- Dashboard refreshes automatically at user-selected intervals.
+- Ensures **up-to-date weather information** without manual reload.
+
+---
+
+### ✅ Result
+This dashboard converts raw weather data into **clear insights**, helping users
+understand **current conditions, trends, and future expectations** easily.
+""")
 components.html(
 """
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
