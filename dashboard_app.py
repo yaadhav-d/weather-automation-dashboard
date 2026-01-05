@@ -969,9 +969,13 @@ with st.expander("ℹ️ How this Weather Dashboard Works"):
 This dashboard converts raw weather data into **clear insights**, helping users
 understand **current conditions, trends, and future expectations** easily.
 """)
+
+
 components.html(
 """
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+ crossorigin="anonymous"/>
 
 <style>
 .footer {
@@ -989,57 +993,27 @@ components.html(
     z-index: 9999;
     font-family: Arial, sans-serif;
 }
-
-/* Left text */
-.footer .emp {
-    font-size: 14px;
-    opacity: 0.9;
-}
-
-/* Social icons */
 .footer .social a {
     color: white;
-    font-size: 20px;
+    font-size: 22px;
     margin-left: 18px;
-    transition: 0.3s ease;
 }
 .footer .social a:hover {
     color: #38BDF8;
     transform: scale(1.2);
 }
-
-/* 📱 Mobile Responsive */
-@media (max-width: 768px) {
-    .footer {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
-        padding: 12px 10px;
-    }
-    .footer .emp {
-        font-size: 13px;
-    }
-    .footer .social a {
-        margin: 0 12px;
-        font-size: 22px;
-    }
-}
 </style>
 
 <div class="footer">
-    <div class="emp">
-        Project done by | Employee Name : <b>YAADHAV </b>
-    </div>
-
-    <div class="social">
-        <a href="https://github.com/yaadhav-d/weather-automation-dashboard.git" 
-   target="_blank" title="Github">
-    <i class="fa-brands fa-github"></i>
-</a>
-    </div>
+  <div>Project done by | Employee Name : <b>YAADHAV</b></div>
+  <div class="social">
+    <a href="https://github.com/yaadhav-d/weather-automation-dashboard.git" target="_blank">
+      <i class="fa-brands fa-github"></i>
+    </a>
+  </div>
 </div>
 """,
-height=100,
+height=150,
 )
 
 # -------------------------------------------------
