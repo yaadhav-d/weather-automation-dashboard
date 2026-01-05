@@ -970,51 +970,47 @@ This dashboard converts raw weather data into **clear insights**, helping users
 understand **current conditions, trends, and future expectations** easily.
 """)
 
-
-
-components.html(
+st.markdown(
 """
 <style>
-.footer {
+#custom-footer {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    background: rgba(15,23,42,0.9);
+    background: linear-gradient(to right, #020617, #0f172a);
+    color: white;
     padding: 14px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: white;
-    z-index: 9999;
     font-family: Arial, sans-serif;
+    z-index: 9999;
 }
 
-.social a svg {
-    width: 24px;
-    height: 24px;
+#custom-footer a svg {
+    width: 22px;
+    height: 22px;
     fill: white;
     transition: 0.3s;
 }
-.social a:hover svg {
+
+#custom-footer a:hover svg {
     fill: #38BDF8;
     transform: scale(1.2);
 }
 </style>
 
-<div class="footer">
+<div id="custom-footer">
     <div>Project done by | Employee Name : <b>YAADHAV</b></div>
-
-    <div class="social">
-        <a href="https://github.com/yaadhav-d/weather-automation-dashboard.git" target="_blank">
-            <svg viewBox="0 0 24 24">
-                <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.95.57.1.78-.25.78-.55v-2.02c-3.2.7-3.88-1.38-3.88-1.38-.53-1.35-1.29-1.71-1.29-1.71-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.3-5.23-1.28-5.23-5.7 0-1.26.45-2.28 1.19-3.08-.12-.3-.52-1.52.11-3.16 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.5 3.18-1.18 3.18-1.18.63 1.64.23 2.86.11 3.16.74.8 1.18 1.82 1.18 3.08 0 4.43-2.69 5.4-5.25 5.69.41.35.78 1.05.78 2.12v3.14c0 .3.2.65.79.54A11.52 11.52 0 0 0 23.5 12C23.5 5.74 18.27.5 12 .5z"/>
-            </svg>
-        </a>
-    </div>
+    <a href="https://github.com/yaadhav-d/weather-automation-dashboard.git" target="_blank">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.95.57.1.78-.25.78-.55v-2.02c-3.2.7-3.88-1.38-3.88-1.38-.53-1.35-1.29-1.71-1.29-1.71-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.3-5.23-1.28-5.23-5.7 0-1.26.45-2.28 1.19-3.08-.12-.3-.52-1.52.11-3.16 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.5 3.18-1.18 3.18-1.18.63 1.64.23 2.86.11 3.16.74.8 1.18 1.82 1.18 3.08 0 4.43-2.69 5.4-5.25 5.69.41.35.78 1.05.78 2.12v3.14c0 .3.2.65.79.54A11.52 11.52 0 0 0 23.5 12C23.5 5.74 18.27.5 12 .5z"/>
+        </svg>
+    </a>
 </div>
 """,
-height=120,
+unsafe_allow_html=True
 )
 
 # -------------------------------------------------
